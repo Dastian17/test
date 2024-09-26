@@ -25,41 +25,25 @@ jobs:
       - name: Run Unit Tests
         run: npm run test-once
 
-      - name: Jest coverage report for latest commit
-        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
-        id: coverage
-        with:
-          output: report-markdown, comment
-
-      - uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          message: ${{ steps.coverage.outputs.report }}
-      
-      - name: Iterate over commits and generate coverage reports
+      - name: Get commits and run Jest coverage
+        id: get_commits
         run: |
-          git log --pretty=format:"%H" | while read commit; do
+          echo "Commits:"
+          coverage_reports=""
+          git rev-list --reverse HEAD | while read commit; do
+            echo "Processing commit: $commit"
             git checkout $commit
+            
+            # Ejecuta las pruebas y genera el informe de cobertura
             npm run test-once
-            # Generate coverage report for each commit
-            jest --coverage
-            # You might want to save the report in a specific format or location
+            coverage=$(npm run jest -- --coverage --reporters=markdown | tail -n 10) # Ajusta según tu salida deseada
+            coverage_reports+="### Coverage for commit $commit\n$coverage\n\n"
           done
 
-      # Uncomment if you want to run E2E tests
-      # - name: Run E2E Tests
-      #   uses: cypress-io/github-action@v4
-      #   with:
-      #     start: npm start
-      #     wait-on: "http://localhost:1234"
+          echo "$coverage_reports" >> coverage.txt
+          echo "::set-output name=coverage_reports::$coverage_reports"
 
-      # Uncomment for build and deployment
-      # - name: Build for deploy
-      #   run: npm run build
-      # - name: Deploy to GitHub Pages
-      #   if: success()
-      #   uses: crazy-max/ghaction-github-pages@v2
-      #   with:
-      #     target_branch: gh-pages
-      #     build_dir: dist
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Comment on PR with coverage reports
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: ${{ steps.get_commits.outputs.coverage_reports }}
