@@ -3,6 +3,8 @@ name: javascript-CI
 on:
   push:
     branches: [main]
+    tags:
+      - 'commit/*'
 
 permissions: write-all
 
@@ -39,7 +41,7 @@ jobs:
                 });
               }
               return "Changelog processed";
-              
+
       - name: Run Unit Tests for the latest commit
         run: npm run test-once
 
