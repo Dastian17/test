@@ -19,9 +19,11 @@ jobs:
         run: npm ci
 
       - name: Iterate over commits
-        run: |
-          echo "Commits in this push:"
-          git log --pretty=oneline ${{ github.event.before }}..${{ github.sha }}
+        run: |  
+        commits=${{join(github.event.commits.*.message, ', ') }}
+        echo $commits
+
+
 
       - name: Run Unit Tests for the latest commit
         run: npm run test-once
