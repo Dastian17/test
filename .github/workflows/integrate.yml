@@ -41,6 +41,20 @@ jobs:
         if: github.event_name == 'push'
         with:
           message: ${{ steps.coverage.outputs.report }}
+
+      # Iterate over each commit in the push and print details
+      - name: Process Commits
+        run: |
+          echo "Processing commits from the push..."
+          for commit in $(echo "${{ github.event.commits[*] }}" | jq -r '.[] | @base64'); do
+            _jq() {
+              echo ${commit} | base64 --decode | jq -r ${1}
+            }
+
+            echo "Commit Message: $(_jq '.message')"
+            echo "Commit Author: $(_jq '.author.name')"
+            echo "Commit Timestamp: $(_jq '.timestamp')"
+          done
       
       #####
       # Run E2E Tests (optional, commented for now)
