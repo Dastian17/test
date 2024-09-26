@@ -3,17 +3,38 @@ name: javascript-CI
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main, master]
-
-permissions: write-all
 
 jobs:
   ci_to_main:
     runs-on: ubuntu-latest
+    strategy:
+      # Matriz que iterará sobre los commits
+      # Usamos un paso inicial para obtener los commits y luego pasarlos a la matriz
+      matrix:
+        commit: []
+
     steps:
       - uses: actions/checkout@v4
       
+      # Obtener todos los commits incluidos en el push
+      - name: Get list of commits
+        id: commits
+        run: |
+          COMMITS=$(git log --oneline HEAD^..HEAD | awk '{print $1}')
+          echo "::set-output name=commit_list::${COMMITS}"
+
+      # Modificar la matriz para iterar sobre cada commit
+      - name: Set commit matrix
+        run: echo "${{ steps.commits.outputs.commit_list }}" | tr ' ' '\n'
+        id: set-matrix
+        continue-on-error: false
+        outputs:
+          matrix_commit: ${{ steps.commits.outputs.commit_list }}
+
+      # Hacer checkout del commit específico en cada iteración
+      - name: Checkout specific commit
+        run: git checkout ${{ matrix.commit }}
+
       - name: Set up node.js
         uses: actions/setup-node@v4
         with:
@@ -22,28 +43,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests for ${{ matrix.commit }}
         run: npm run test-once
 
-      - name: Get commits and run Jest coverage
-        id: get_commits
-        run: |
-          echo "Commits:"
-          coverage_reports=""
-          git rev-list --reverse HEAD | while read commit; do
-            echo "Processing commit: $commit"
-            git checkout $commit
-            
-            # Ejecuta las pruebas y genera el informe de cobertura
-            npm run test-once
-            coverage=$(npm run jest -- --coverage --reporters=markdown | tail -n 10) # Ajusta según tu salida deseada
-            coverage_reports+="### Coverage for commit $commit\n$coverage\n\n"
-          done
-
-          echo "$coverage_reports" >> coverage.txt
-          echo "::set-output name=coverage_reports::$coverage_reports"
-
-      - name: Comment on PR with coverage reports
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Jest coverage report
+        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
+        id: coverage
         with:
-          message: ${{ steps.get_commits.outputs.coverage_reports }}
+          output: report-markdown, comment
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: ${{ steps.coverage.outputs.report }}
