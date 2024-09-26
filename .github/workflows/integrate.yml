@@ -27,12 +27,19 @@ jobs:
           result-encoding: string
           script: |
               const commits = JSON.parse(process.env.COMMITS);
-              var lines = "## What’s Changed\n\n";
               for (const commit of commits) {
-                lines += "- " + commit.message + " (" + commit.id + ") @" + commit.author.username + "\n"
+                // Dispara otro workflow para cada commit
+                await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/actions/workflows/your-other-workflow.yml/dispatches`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                  },
+                  body: JSON.stringify({ ref: github.ref })
+                });
               }
-              return lines
-
+              return "Changelog processed";
+              
       - name: Run Unit Tests for the latest commit
         run: npm run test-once
 
