@@ -22,22 +22,26 @@ jobs:
       # Obtener los commits del evento push
       - name: Get commits from push
         id: commits
-        run: echo "commit_list=$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')" >> $GITHUB_ENV
+        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')"
 
       # Instalar GitHub CLI
       - name: Install GitHub CLI
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gh jq
+          sudo apt-get install gh
 
+      - name: Run Unit Tests
+        run: npm run test-once
+      - name: Jest coverage report
+        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
+        id: coverage
+        with:
+            output: report-markdown, comment
       # Iterar por cada commit y generar el reporte de cobertura
       - name: Run Jest coverage for each commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
         run: |
-          IFS=',' read -ra commit_list <<< "$commit_list"
-          
-          for commit in "${commit_list[@]}"; do
+          for commit in ${{ steps.commits.outputs.commit_list }}; do
             echo "Running actions for commit: $commit"
             
             # Hacer checkout de cada commit
