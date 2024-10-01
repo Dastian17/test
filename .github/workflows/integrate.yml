@@ -3,28 +3,26 @@ name: CI Workflow for Each Commit with Jest Coverage
 on:
   push:
     branches:
-      - '**'
+      - "**"
 
 permissions:
-  contents: write  # Permission to write to the repo (necessary for commenting)
+  contents: write # Permission to write to the repo (necessary for commenting)
 
 jobs:
   run-for-each-commit:
     runs-on: ubuntu-latest
-    
+
     steps:
       # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensure all commits are available
+          fetch-depth: 0 # Ensure all commits are available
 
       # Get commits from the push event
       - name: Get commits from push
         id: commits
-        run: |
-          COMMIT_LIST=$(jq -r '.commits[].id' <<< '${{ toJson(github.event) }}')
-          echo "commit_list=$COMMIT_LIST" >> $GITHUB_OUTPUT
+        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')">> $GITHUB_OUTPUT
 
       # Install GitHub CLI
       - name: Install GitHub CLI
@@ -43,7 +41,7 @@ jobs:
       # Run Jest coverage for each commit
       - name: Run Jest coverage for each commit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configure token for GitHub CLI
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
         run: |
           IFS=$'\n' read -d '' -r -a commit_array <<< "${{ steps.commits.outputs.commit_list }}"
           for commit in "${commit_array[@]}"; do
