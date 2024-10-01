@@ -1,4 +1,4 @@
-name: CI Workflow for Each Commit
+name: CI Workflow for Each Commit with Jest Coverage
 
 on:
   push:
@@ -17,43 +17,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Retrieve the list of commits from the push event
-      - name: Get commits from push
-        id: commits
-        run: |
-          echo "Commits in push:"
-          echo "${{ toJson(github.event.commits) }}"
-          
-          # Export the commit list as an output for the job
-          echo "::set-output name=commit-list::$(echo '${{ toJson(github.event.commits) }}' | jq -r '.[].id')"
-
-      # Iterate through commits and run build/test for each one
-      - name: Run actions for each commit
-        run: |
-          for commit in $(jq -r '.[].id' <<< "${{ toJson(github.event.commits) }}"); do
-            echo "Running actions for commit: $commit"
-            git checkout $commit
-            
-            # Run your build and test for each commit
-            echo "Running build for commit $commit"
-            npm install
-            npm run build
-            npm test
-          done
-        shell: bash
-
-      # Post success comment for each commit
-      - name: Comment on each commit
-        uses: actions/github-script@v6
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}  # Usar el token de autenticación
-          script: |
-            const commits = ${{ toJson(github.event.commits) }};
-            for (const commit of commits) {
-              github.rest.repos.createCommitComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: commit.id,
-                body: `✅ CI passed successfully for commit: ${commit.id}`
-              });
-            }
+          node-version: '16'  # Usa la versión de Node.js que prefieras
+
+      # Instalar dependencias
+      - name: Install dependencies
+        run: npm install
+
+      # Generar el reporte de cobertura de Jest
+      - name: Jest coverage report
+        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
+        id: coverage
+        with:
+          output: report-markdown, comment
+
+      # Publicar el reporte de cobertura en un comentario en el commit
+      - name: Post coverage report to commit
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: ${{ steps.coverage.outputs.report }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Usar el token para autenticar
+
+      # # Post success comment for each commit (opcional si también quieres un mensaje de éxito aparte del reporte de cobertura)
+      # - name: Comment on each commit
+      #   uses: actions/github-script@v6
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       const commits = ${{ toJson(github.event.commits) }};
+      #       for (const commit of commits) {
+      #         github.rest.repos.createCommitComment({
+      #           owner: context.repo.owner,
+      #           repo: context.repo.repo,
+      #           commit_sha: commit.id,
+      #           body: `✅ CI passed successfully for commit: ${commit.id}\n\n### Coverage Report:\n\n${{ steps.coverage.outputs.report }}`
+      #         });
+      #       }
