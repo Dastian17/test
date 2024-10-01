@@ -5,6 +5,9 @@ on:
     branches:
       - '**'
 
+permissions:
+  contents: write  # Permiso para escribir en el repo (necesario para hacer comentarios)
+
 jobs:
   run-for-each-commit:
     runs-on: ubuntu-latest
@@ -14,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Retrieve the list of commits for the push event
+      # Retrieve the list of commits from the push event
       - name: Get commits from push
         id: commits
         run: |
@@ -43,6 +46,7 @@ jobs:
       - name: Comment on each commit
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # Usar el token de autenticación
           script: |
             const commits = ${{ toJson(github.event.commits) }};
             for (const commit of commits) {
