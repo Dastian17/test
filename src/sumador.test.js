@@ -82,8 +82,6 @@ describe("Sumar", () => {
   it("deberia sumar dos numeros", () => {
     expect(sumar(1, 3)).toEqual(4);
   });
-  it("deberia sumar dos numeros", () => {
-    expect(sumar(1, 3)).toEqual(4);
-  });
+  
   
 });
