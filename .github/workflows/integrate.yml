@@ -2,32 +2,49 @@ name: CI Workflow
 
 on:
   push:
-    branches:
-      - '**'  # Triggers on push to any branch
+    branches: [main]
+  pull_request:
+    branches: [main, master]
+
+permissions: write-all
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code from the repository
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      
+      - name: Set up node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '16'  # Specify the version of Node.js
+          node-version: 20
 
-      # Install dependencies
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      # Run build (or other necessary build commands)
-      - name: Run build
-        run: npm run build
+      - name: Run Unit Tests
+        run: npm run test-once
 
-      # Run tests
-      - name: Run tests
-        run: npm test
+      - name: Get commits and run Jest coverage
+        id: get_commits
+        run: |
+          echo "Commits:"
+          coverage_reports=""
+          git rev-list --reverse HEAD | while read commit; do
+            echo "Processing commit: $commit"
+            git checkout $commit
+            
+            # Ejecuta las pruebas y genera el informe de cobertura
+            npm run test-once
+            coverage=$(npm run jest -- --coverage --reporters=markdown | tail -n 10) # Ajusta según tu salida deseada
+            coverage_reports+="### Coverage for commit $commit\n$coverage\n\n"
+          done
+
+          echo "$coverage_reports" >> coverage.txt
+          echo "::set-output name=coverage_reports::$coverage_reports"
+
+      - name: Comment on PR with coverage reports
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: ${{ steps.get_commits.outputs.coverage_reports }}
