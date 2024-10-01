@@ -8,6 +8,7 @@ on:
 jobs:
   run-for-each-commit:
     runs-on: ubuntu-latest
+
     steps:
       # Checkout the code
       - name: Checkout repository
@@ -15,11 +16,17 @@ jobs:
 
       # Retrieve the list of commits for the push event
       - name: Get commits from push
+        id: commits
         run: |
           echo "Commits in push:"
           echo "${{ toJson(github.event.commits) }}"
           
-          # Iterate through each commit and run actions on each one
+          # Export the commit list as an output for the job
+          echo "::set-output name=commit-list::$(echo '${{ toJson(github.event.commits) }}' | jq -r '.[].id')"
+
+      # Iterate through commits and run build/test for each one
+      - name: Run actions for each commit
+        run: |
           for commit in $(jq -r '.[].id' <<< "${{ toJson(github.event.commits) }}"); do
             echo "Running actions for commit: $commit"
             git checkout $commit
@@ -28,7 +35,21 @@ jobs:
             echo "Running build for commit $commit"
             npm install
             npm run build
-            npm run test-once
+            npm test
           done
         shell: bash
 
+      # Post success comment for each commit
+      - name: Comment on each commit
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const commits = ${{ toJson(github.event.commits) }};
+            for (const commit of commits) {
+              github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: commit.id,
+                body: `✅ CI passed successfully for commit: ${commit.id}`
+              });
+            }
