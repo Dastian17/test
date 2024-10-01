@@ -16,14 +16,6 @@ jobs:
     - name: Instalar dependencias
       run: npm install
 
-    - name: Ejecutar pruebas y comentar cobertura
-      run: |
-        for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
-          echo "Procesando commit $commit"
-          COVERAGE=$(npx jest --coverage)
-          gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: \n\n$COVERAGE"
-        done
-
     - name: Run Jest coverage for each commit
       env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
