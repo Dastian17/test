@@ -1,25 +1,47 @@
-name: Ejecutar en cada push
+name: CI Workflow for Each Commit with Jest Coverage
 
-on: push
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: write  # Permiso para escribir en el repo (necesario para hacer comentarios)
+
 jobs:
-  build:
+  run-for-each-commit:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
+      # Checkout the code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Asegurarse de que todos los commits están disponibles
 
-    - name: Configurar Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      # Obtener los commits del evento push
+      - name: Get commits from push
+        id: commits
+        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')"
 
-    - name: Instalar dependencias
-      run: npm install
-
-    - name: Run Jest coverage for each commit
-      env:
+      # Instalar GitHub CLI
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get install gh
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Unit Tests
+        run: npm run test-once
+      - name: Jest coverage report
+        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
+        id: coverage
+        with:
+            output: report-markdown, comment
+      # Iterar por cada commit y generar el reporte de cobertura
+      - name: Run Jest coverage for each commit
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
-      run: |
+        run: |
           for commit in ${{ steps.commits.outputs.commit_list }}; do
             echo "Running actions for commit: $commit"
             
@@ -38,4 +60,4 @@ jobs:
             # Hacer un comentario en el commit
             gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: \n\n$COVERAGE"
           done
-      shell: bash
+        shell: bash
