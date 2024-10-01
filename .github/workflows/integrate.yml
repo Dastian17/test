@@ -22,7 +22,7 @@ jobs:
       # Get commits from the push event
       - name: Get commits from push
         id: commits
-        run: echo "commit_list=$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')" >> $GITHUB_ENV
+        run: echo "commit_list=$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')"
 
       # Install GitHub CLI
       - name: Install GitHub CLI
@@ -43,7 +43,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
         run: |
-          IFS=$'\n' read -d '' -r -a commit_array <<< "${{ env.commit_list }}"
+          IFS=$'\n' read -d '' -r -a commit_array <<< "${{ steps.commits.outputs.commit_list }}"
           for commit in "${commit_array[@]}"; do
             echo "Running actions for commit: $commit"
             
