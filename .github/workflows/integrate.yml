@@ -6,58 +6,59 @@ on:
       - '**'
 
 permissions:
-  contents: write  # Permiso para escribir en el repo (necesario para hacer comentarios)
+  contents: write  # Permission to write to the repo (necessary for commenting)
 
 jobs:
   run-for-each-commit:
     runs-on: ubuntu-latest
-
+    
     steps:
       # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Asegurarse de que todos los commits están disponibles
+          fetch-depth: 0  # Ensure all commits are available
 
-      # Obtener los commits del evento push
+      # Get commits from the push event
       - name: Get commits from push
         id: commits
-        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')" 
+        run: |
+          COMMIT_LIST=$(jq -r '.commits[].id' <<< '${{ toJson(github.event) }}')
+          echo "commit_list=$COMMIT_LIST" >> $GITHUB_OUTPUT
 
-      # Instalar GitHub CLI
+      # Install GitHub CLI
       - name: Install GitHub CLI
         run: |
-          sudo apt-get install gh
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
+
+      # Install dependencies
       - name: Install dependencies
         run: npm ci
-      - name: Run Unit Tests
-        run: npm run test-once
-      - name: Jest coverage report
-        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
-        id: coverage
-        with:
-            output: report-markdown, comment
-      # Iterar por cada commit y generar el reporte de cobertura
+
+      # Run Jest coverage for each commit
       - name: Run Jest coverage for each commit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configure token for GitHub CLI
         run: |
-          for commit in ${{ steps.commits.outputs.commit_list }}; do
+          IFS=$'\n' read -d '' -r -a commit_array <<< "${{ steps.commits.outputs.commit_list }}"
+          for commit in "${commit_array[@]}"; do
             echo "Running actions for commit: $commit"
             
-            # Hacer checkout de cada commit
+            # Checkout each commit
             git checkout $commit
             
-            # Instalar dependencias
+            # Install dependencies
             npm install
             
-            # Generar el reporte de cobertura
-            npx jest --coverage
+            # Generate coverage report
+            COVERAGE=$(npm run test-once -- --coverage)
             
-            # Guardar el reporte de cobertura como Markdown
-            COVERAGE=$(npx jest --coverage)
-            
-            # Hacer un comentario en el commit
-            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: \n\n$COVERAGE"
+            # Comment on the commit
+            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:$COVERAGE"
           done
         shell: bash
