@@ -1,37 +1,34 @@
-name: CI Workflow
+name: CI Workflow for Each Commit
 
 on:
   push:
     branches:
-      - '**'  # Triggers on push to any branch
-
-concurrency:
-  group: workflow-${{ github.ref }}  # Ensures runs are queued by branch
-  cancel-in-progress: false          # Allows multiple runs for consecutive commits
+      - '**'
 
 jobs:
-  build:
+  run-for-each-commit:
     runs-on: ubuntu-latest
-
     steps:
-      # Checkout the code from the repository
+      # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'  # Specify the version of Node.js
+      # Retrieve the list of commits for the push event
+      - name: Get commits from push
+        run: |
+          echo "Commits in push:"
+          echo "${{ toJson(github.event.commits) }}"
+          
+          # Iterate through each commit and run actions on each one
+          for commit in $(jq -r '.[].id' <<< "${{ toJson(github.event.commits) }}"); do
+            echo "Running actions for commit: $commit"
+            git checkout $commit
+            
+            # Run your build and test for each commit
+            echo "Running build for commit $commit"
+            npm install
+            npm run build
+            npm run test-once
+          done
+        shell: bash
 
-      # Install dependencies
-      - name: Install dependencies
-        run: npm install
-
-      # Run build (or other necessary build commands)
-      - name: Run build
-        run: npm run build
-
-      # Run tests
-      - name: Run tests
-        run: npm test-once
