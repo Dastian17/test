@@ -34,12 +34,6 @@ jobs:
         with:
           output: report-markdown, comment
 
-      # Publicar el reporte de cobertura en un comentario en el commit
-      - name: Post coverage report to commit
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          message: ${{ steps.coverage.outputs.report }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Usar el token para autenticar
 
       # Post success comment for each commit (opcional si también quieres un mensaje de éxito aparte del reporte de cobertura)
       - name: Comment on each commit
