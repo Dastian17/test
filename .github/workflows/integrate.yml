@@ -3,10 +3,10 @@ name: CI Workflow for Each Commit with Jest Coverage
 on:
   push:
     branches:
-      - '**'
+      - "**"
 
 permissions:
-  contents: write  # Permiso para escribir en el repo (necesario para hacer comentarios)
+  contents: write # Permiso para escribir en el repo (necesario para hacer comentarios)
 
 jobs:
   run-for-each-commit:
@@ -17,12 +17,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Asegurarse de que todos los commits están disponibles
+          fetch-depth: 0 # Asegurarse de que todos los commits están disponibles
 
       # Obtener los commits del evento push
       - name: Get commits from push
         id: commits
-        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')"
+        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')" >> $GITHUB_ENV
 
       # Instalar GitHub CLI
       - name: Install GitHub CLI
@@ -36,13 +36,15 @@ jobs:
         uses: ArtiomTr/jest-coverage-report-action@v2.2.6
         id: coverage
         with:
-            output: report-markdown, comment
+          output: report-markdown, comment
       # Iterar por cada commit y generar el reporte de cobertura
       - name: Run Jest coverage for each commit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configurar el token para GitHub CLI
+          COMMIT_LIST: ${{ env.commit_list }}
+
         run: |
-          for commit in ${{ steps.commits.outputs.commit_list }}; do
+          for commit in $COMMIT_LIST; do
             echo "Running actions for commit: $commit"
             
             # Hacer checkout de cada commit
