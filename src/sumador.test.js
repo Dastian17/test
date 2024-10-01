@@ -79,4 +79,7 @@ describe("Sumar", () => {
 
 
 
+  it("deberia sumar dos numeros", () => {
+    expect(restar(3, 1)).toEqual(2);
+  });
 });
