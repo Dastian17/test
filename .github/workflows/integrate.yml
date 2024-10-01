@@ -41,18 +41,18 @@ jobs:
           message: ${{ steps.coverage.outputs.report }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Usar el token para autenticar
 
-      # # Post success comment for each commit (opcional si también quieres un mensaje de éxito aparte del reporte de cobertura)
-      # - name: Comment on each commit
-      #   uses: actions/github-script@v6
-      #   with:
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     script: |
-      #       const commits = ${{ toJson(github.event.commits) }};
-      #       for (const commit of commits) {
-      #         github.rest.repos.createCommitComment({
-      #           owner: context.repo.owner,
-      #           repo: context.repo.repo,
-      #           commit_sha: commit.id,
-      #           body: `✅ CI passed successfully for commit: ${commit.id}\n\n### Coverage Report:\n\n${{ steps.coverage.outputs.report }}`
-      #         });
-      #       }
+      # Post success comment for each commit (opcional si también quieres un mensaje de éxito aparte del reporte de cobertura)
+      - name: Comment on each commit
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commits = ${{ toJson(github.event.commits) }};
+            for (const commit of commits) {
+              github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: commit.id,
+                body: `✅ CI passed successfully for commit: ${commit.id}\n\n### Coverage Report:\n\n${{ steps.coverage.outputs.report }}`
+              });
+            }
