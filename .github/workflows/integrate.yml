@@ -18,8 +18,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Asegurarse de que todos los commits están disponibles
-
-      # Obtener los commits del evento push
+     # Obtener los commits del evento push
       - name: Get commits from push
         id: commits
         run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')"
@@ -42,14 +41,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
         run: |
-          for commit in ${{ steps.commits.outputs.commit_list }}; do
+          IFS=',' read -ra commit_list <<< "$commit_list"
+          
+          for commit in "${commit_list[@]}"; do
             echo "Running actions for commit: $commit"
             
             # Hacer checkout de cada commit
             git checkout $commit
             
             # Instalar dependencias
-            npm install
+            npm ci  # Usa ci para asegurar que las dependencias son las mismas
+            
+            # Ejecutar pruebas
+            npm run test-once
             
             # Generar el reporte de cobertura
             npx jest --coverage
