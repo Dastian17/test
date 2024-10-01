@@ -5,6 +5,10 @@ on:
     branches:
       - '**'  # Triggers on push to any branch
 
+concurrency:
+  group: workflow-${{ github.ref }}  # Ensures runs are queued by branch
+  cancel-in-progress: false          # Allows multiple runs for consecutive commits
+
 jobs:
   build:
     runs-on: ubuntu-latest
