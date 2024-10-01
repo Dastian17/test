@@ -19,12 +19,12 @@ jobs:
         with:
           fetch-depth: 0 # Ensure all commits are available
 
-      # Get commits from the push event
+      # Get commits from the push event and store them as output
       - name: Get commits from push
         id: commits
         run: |
           commit_list=$(jq -r '.[] | .id' <<< '${{ toJson(github.event.commits) }}')
-          echo "commit_list=${commit_list}" >> $GITHUB_ENV
+          echo "::set-output name=commit_list::${commit_list}"
 
       # Install GitHub CLI
       - name: Install GitHub CLI
@@ -45,7 +45,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
         run: |
-          for commit in ${{ env.commit_list }}; do
+          commit_list="${{ steps.commits.outputs.commit_list }}"
+          for commit in $commit_list; do
             echo "Running actions for commit: $commit"
             
             # Checkout each commit
