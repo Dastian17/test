@@ -5,25 +5,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v2
+      - name: Checkout del código
+        uses: actions/checkout@v2
 
-    - name: Configurar Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '14'
+      - name: Configurar Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "14"
 
-    - name: Instalar dependencias
-      run: npm install
+      - name: Instalar dependencias
+        run: npm install
 
-    - name: Ejecutar pruebas y comentar cobertura
-      env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Configurar el token para GitHub CLI
-      run: |
-        for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
-          echo "Procesando commit $commit"
-          COVERAGE=$(npx jest --coverage)
-          gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: \n\n$COVERAGE"
-        done
+      - name: Ejecutar pruebas y comentar cobertura
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
+              echo "Procesando commit $commit"
+              COVERAGE=$(npx jest --coverage)
+              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: \n\n$COVERAGE"
+            done
+          else
+            echo "No valid previous commit, running coverage for current commit"
+            COVERAGE=$(npx jest --coverage)
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -f body="### Jest Coverage Report for commit ${{ github.sha }}: \n\n$COVERAGE"
+          fi
 
-      
