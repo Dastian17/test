@@ -16,37 +16,34 @@ jobs:
       # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      # Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
         with:
-          node-version: '16'  # Usa la versión de Node.js que prefieras
+          fetch-depth: 0  # Asegurarse de que todos los commits están disponibles
 
-      # Instalar dependencias
-      - name: Install dependencies
-        run: npm install
+      # Obtener los commits del evento push
+      - name: Get commits from push
+        id: commits
+        run: echo "::set-output name=commit_list::$(jq -r '.[].id' <<< '${{ toJson(github.event.commits) }}')"
 
-      # Generar el reporte de cobertura de Jest
-      - name: Jest coverage report
-        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
-        id: coverage
-        with:
-          output: report-markdown, comment
-
-
-      # Post success comment for each commit (opcional si también quieres un mensaje de éxito aparte del reporte de cobertura)
-      - name: Comment on each commit
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const commits = ${{ toJson(github.event.commits) }};
-            for (const commit of commits) {
-              github.rest.repos.createCommitComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: commit.id,
-                body: `✅ CI passed successfully for commit: ${commit.id}\n\n### Coverage Report:\n\n${{ steps.coverage.outputs.report }}`
-              });
-            }
+      # Iterar por cada commit y generar el reporte de cobertura
+      - name: Run Jest coverage for each commit
+        run: |
+          for commit in ${{ steps.commits.outputs.commit_list }}; do
+            echo "Running actions for commit: $commit"
+            
+            # Hacer checkout de cada commit
+            git checkout $commit
+            
+            # Instalar dependencias
+            npm install
+            
+            # Generar el reporte de cobertura
+            npx jest --coverage
+            
+            # Guardar el reporte de cobertura como Markdown
+            COVERAGE=$(npx jest --coverage --coverageReporters=text-summary | tail -n +2)
+            echo "::set-output name=coverage_report::$COVERAGE"
+            
+            # Hacer un comentario en el commit
+            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: \n\n$COVERAGE"
+          done
+        shell: bash
