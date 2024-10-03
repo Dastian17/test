@@ -1,21 +1,38 @@
-name: Run Jest coverage for each commit
+name: CI Workflow with Jest Coverage
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  test:
+  test-and-coverage:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Run Jest coverage for each commit
+      - name: Run tests and generate coverage for each commit
         run: |
-          commit_list="${{ steps.commits.outputs.commit_list }}"
+          commit_list=""
           for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
             git checkout $commit
             echo "Running tests for commit $commit"
@@ -25,7 +42,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          coverage_output=$(npm run test -- --coverage | tail -n 4)
+          coverage_output=$(npm run test-once | tail -n 4)
 
           get_percentage() {
             echo "$coverage_output" | awk -v pattern="$1" '$0 ~ pattern {print $3}' | tr -d '%'
@@ -44,26 +61,43 @@ jobs:
             fi
           }
 
-          # Obtener porcentajes
           statements_pct=$(get_percentage 'Statements')
           branches_pct=$(get_percentage 'Branches')
           functions_pct=$(get_percentage 'Functions')
           lines_pct=$(get_percentage 'Lines')
 
-          # Crear el reporte con formato de tabla bien alineada
           report="### Coverage report\n\n"
-          report+="| St. | Category   | Percentage | Covered / Total |\n"
-          report+="|:---:|------------|:----------:|:---------------:|\n"
-          report+="| $(get_emoji $statements_pct) | Statements | $statements_pct% | $(get_covered_total 'Statements') |\n"
-          report+="| $(get_emoji $branches_pct)   | Branches   | $branches_pct%   | $(get_covered_total 'Branches')   |\n"
-          report+="| $(get_emoji $functions_pct)  | Functions  | $functions_pct%  | $(get_covered_total 'Functions')  |\n"
-          report+="| $(get_emoji $lines_pct)      | Lines      | $lines_pct%      | $(get_covered_total 'Lines')      |\n"
+          report+="| St. | Category  | Percentage | Covered / Total |\n"
+          report+="|:---:|-----------|:----------:|:---------------:|\n"
+          report+="| $(get_emoji $statements_pct) | Statements | $statements_pct%  | $(get_covered_total 'Statements')  |\n"
+          report+="| $(get_emoji $branches_pct) | Branches   | $branches_pct%    | $(get_covered_total 'Branches')    |\n"
+          report+="| $(get_emoji $functions_pct) | Functions   | $functions_pct%    | $(get_covered_total 'Functions')    |\n"
+          report+="| $(get_emoji $lines_pct) | Lines       | $lines_pct%        | $(get_covered_total 'Lines')        |\n"
           report+="\n### Test suite run success"
 
-          # Guardar el reporte
           echo "$report" > coverage-report.md
 
-      - name: Create Pull Request comment with coverage report
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Comment PR
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
         with:
-          path: coverage-report.md
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs')
+            const report = fs.readFileSync('coverage-report.md', 'utf8')
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            })
+
+      - name: Comment Commit
+        if: github.event_name == 'push'
+        run: |
+          commit_sha=${{ github.sha }}
+          report=$(cat coverage-report.md)
+          gh api repos/${{ github.repository }}/commits/$commit_sha/comments \
+            -f body="$report"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
