@@ -21,6 +21,7 @@ jobs:
             echo "Running tests for commit $commit"
             npm install
             npm run test -- --coverage
+          done
 
       - name: Generate coverage report
         run: |
