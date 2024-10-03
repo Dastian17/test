@@ -6,27 +6,24 @@ on:
       - "**"
 
 permissions:
-  contents: write # Permission to write to the repo (necessary for commenting)
+  contents: write
 
 jobs:
   run-for-each-commit:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Ensure all commits are available
+          fetch-depth: 0
 
-      # Get commits from the push event and store them as output
       - name: Get commits from push
         id: commits
         run: |
           commit_list=$(jq -r '.[] | .id' <<< '${{ toJson(github.event.commits) }}')
           echo "::set-output name=commit_list::${commit_list}"
 
-      # Install GitHub CLI
       - name: Install GitHub CLI
         run: |
           type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
@@ -36,72 +33,69 @@ jobs:
           && sudo apt update \
           && sudo apt install gh -y
 
-      # Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # Run Jest coverage for each commit
       - name: Run Jest coverage for each commit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           commit_list="${{ steps.commits.outputs.commit_list }}"
-           for commit in $(git rev-list ${{ github.event.before}}..${{ github.sha}}); do
-              git checkout $commit
-              echo "run test"
-               # Install dependencies
-              npm install
-            
+          for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
+            git checkout $commit
+            echo "run test"
+            npm install
+            node << EOF
               const fs = require('fs');
               const { execSync } = require('child_process');
 
-              // Ejecutar Jest y capturar la salida
-              const jestOutput = execSync('npm run test-once -- --coverage', { encoding: 'utf-8' });
+              try {
+                const jestOutput = execSync('npm run test-once -- --coverage', { encoding: 'utf-8' });
+                const coverageRegex = /All files\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/;
+                const match = jestOutput.match(coverageRegex);
 
-              // Extraer la información de cobertura
-              const coverageRegex = /All files\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/;
-              const match = jestOutput.match(coverageRegex);
+                if (match) {
+                  const [, statements, branches, functions, lines] = match;
+                  const getEmoji = (percentage) => parseFloat(percentage) === 100 ? '🟢' : '❔';
+                  const formattedReport = \`
+### Coverage report
 
-              if (match) {
-                const [, statements, branches, functions, lines] = match;
+St.  | Category    | Percentage
+-----|-------------|------------
+\${getEmoji(statements)} | Statements  | \${statements}%
+\${getEmoji(branches)}   | Branches    | \${branches}%
+\${getEmoji(functions)}  | Functions   | \${functions}%
+\${getEmoji(lines)}      | Lines       | \${lines}%
+                  \`;
 
-                // Función para determinar el emoji basado en el porcentaje
-                const getEmoji = (percentage) => percentage === '100' ? '🟢' : '❔';
-
-                // Crear el reporte formateado
-                const formattedReport = `
-              ### Coverage report
-
-              St.  | Category    | Percentage
-              -----|-------------|------------
-              ${getEmoji(statements)} | Statements  | ${statements}%
-              ${getEmoji(branches)}   | Branches    | ${branches}%
-              ${getEmoji(functions)}  | Functions   | ${functions}%
-              ${getEmoji(lines)}      | Lines       | ${lines}%
-                `;
-
-                // Obtener el hash del commit actual
-                const commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
-
-                // Crear el comentario completo
-                const fullComment = `Jest Coverage Report for commit ${commitHash}:\n${formattedReport}`;
-
-                // Guardar el comentario en un archivo temporal
-                fs.writeFileSync('coverage-comment.txt', fullComment);
-
-                console.log('Reporte de cobertura formateado y guardado en coverage-comment.txt');
-              } else {
-                console.error('No se pudo extraer la información de cobertura del output de Jest.');
+                  const commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+                  const fullComment = \`Jest Coverage Report for commit \${commitHash}:\n\${formattedReport}\`;
+                  fs.writeFileSync('coverage-comment.txt', fullComment);
+                  console.log('Reporte de cobertura formateado y guardado en coverage-comment.txt');
+                } else {
+                  console.error('No se pudo extraer la información de cobertura del output de Jest.');
+                  process.exit(1);
+                }
+              } catch (error) {
+                console.error('Error al ejecutar Jest o procesar la salida:', error);
+                process.exit(1);
               }
+            EOF
+            
+            if [ $? -eq 0 ]; then
+              gh api repos/${{ github.repository }}/commits/$commit/comments --field-file coverage-comment.txt
+            else
+              echo "Failed to generate coverage report for commit $commit"
+            fi
           done
         shell: bash
-     #####
+
+      # Commented out steps...
       #- name: Run E2E Tests
       #  uses: cypress-io/github-action@v4
       #  with:
       #    start: npm start
       #    wait-on: "http://localhost:1234"
-      #####
       #- name: Build for deploy
       #  run: npm run build
       #- name: Deploy to GitHub Pages
