@@ -68,13 +68,16 @@ jobs:
                 TOTAL_LINES=$(jq '.total.lines.total' coverage/coverage-summary.json)
 
                 # Format the coverage report as a markdown table
-                BODY="Coverage report for commit $commit\n\n"
+                BODY="### Coverage report for commit $commit\n\n"
                 BODY+="| St.❔ | Category   | Percentage | Covered / Total |\n"
                 BODY+="| :--: | :--------- | ---------: | --------------: |\n"
                 BODY+="| 🟢  | Statements  | ${STATEMENTS}% | ${COVERED_STATEMENTS}/${TOTAL_STATEMENTS} |\n"
                 BODY+="| 🟢  | Branches    | ${BRANCHES}%   | ${COVERED_BRANCHES}/${TOTAL_BRANCHES} |\n"
                 BODY+="| 🟢  | Functions   | ${FUNCTIONS}%  | ${COVERED_FUNCTIONS}/${TOTAL_FUNCTIONS} |\n"
                 BODY+="| 🟢  | Lines       | ${LINES}%      | ${COVERED_LINES}/${TOTAL_LINES} |\n"
+
+                # Debug: Log the body to ensure it's being formatted correctly
+                echo "$BODY"
 
                 # Comment on the commit
                 gh api repos/${{ github.repository }}/commits/$commit/comments -f body="$BODY"
