@@ -52,11 +52,20 @@ jobs:
                # Install dependencies
               npm install
             
-              # Generate coverage report
-              COVERAGE=$(npm run test-once -- --coverage)
-            
-              # Comment on the commit
-              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:$COVERAGE"
+              COVERAGE=$(npm run test-once -- --coverage --json --outputFile=coverage-summary.json)
+
+              # Parse coverage details
+              TOTAL_STATEMENTS=$(jq '.total.statements.pct' coverage-summary.json)
+              TOTAL_BRANCHES=$(jq '.total.branches.pct' coverage-summary.json)
+              TOTAL_FUNCTIONS=$(jq '.total.functions.pct' coverage-summary.json)
+              TOTAL_LINES=$(jq '.total.lines.pct' coverage-summary.json)
+
+              # Comment on the commit with improved formatting
+              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:
+              - **Statements:** ${TOTAL_STATEMENTS}% 
+              - **Branches:** ${TOTAL_BRANCHES}% 
+              - **Functions:** ${TOTAL_FUNCTIONS}% 
+              - **Lines:** ${TOTAL_LINES}%"
           done
         shell: bash
      #####
