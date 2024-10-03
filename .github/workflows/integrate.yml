@@ -32,50 +32,41 @@ jobs:
 
       - name: Run tests and generate coverage
         run: npm run test-once
-        continue-on-error: true
-
-      - name: Check coverage output
-        run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            echo "Coverage summary file exists"
-          else
-            echo "Coverage summary file does not exist"
-            ls -R coverage
-          fi
 
       - name: Generate coverage report
         run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            coverage_summary=$(cat coverage/coverage-summary.json)
-            statements=$(echo $coverage_summary | jq -r '.total.statements.pct')
-            branches=$(echo $coverage_summary | jq -r '.total.branches.pct')
-            functions=$(echo $coverage_summary | jq -r '.total.functions.pct')
-            lines=$(echo $coverage_summary | jq -r '.total.lines.pct')
-          else
-            echo "Coverage summary file not found. Using placeholder values."
-            statements="N/A"
-            branches="N/A"
-            functions="N/A"
-            lines="N/A"
-          fi
+          coverage_output=$(npm run test-once | tail -n 4)
+          
+          get_percentage() {
+            echo "$coverage_output" | awk -v pattern="$1" '$0 ~ pattern {print $3}' | tr -d '%'
+          }
+
+          get_covered_total() {
+            echo "$coverage_output" | awk -v pattern="$1" '$0 ~ pattern {print $4}'
+          }
 
           get_emoji() {
-            if [ "$1" = "100" ]; then
+            percentage=$1
+            if [ "$percentage" = "100" ]; then
               echo "🟢"
-            elif [ "$1" = "N/A" ]; then
-              echo "❓"
             else
               echo "❔"
             fi
           }
 
-          report="### Coverage Report\n\n"
-          report+="| Category | Coverage | Percentage |\n"
-          report+="|----------|----------|------------|\n"
-          report+="| Statements | $(get_emoji $statements) | $statements% |\n"
-          report+="| Branches | $(get_emoji $branches) | $branches% |\n"
-          report+="| Functions | $(get_emoji $functions) | $functions% |\n"
-          report+="| Lines | $(get_emoji $lines) | $lines% |\n"
+          statements_pct=$(get_percentage 'Statements')
+          branches_pct=$(get_percentage 'Branches')
+          functions_pct=$(get_percentage 'Functions')
+          lines_pct=$(get_percentage 'Lines')
+
+          report="### Coverage report\n\n"
+          report+="| St. | Category | Percentage | Covered / Total |\n"
+          report+="|:---:|----------|:----------:|:---------------:|\n"
+          report+="| $(get_emoji $statements_pct) | Statements | $statements_pct% | $(get_covered_total 'Statements') |\n"
+          report+="| $(get_emoji $branches_pct) | Branches | $branches_pct% | $(get_covered_total 'Branches') |\n"
+          report+="| $(get_emoji $functions_pct) | Functions | $functions_pct% | $(get_covered_total 'Functions') |\n"
+          report+="| $(get_emoji $lines_pct) | Lines | $lines_pct% | $(get_covered_total 'Lines') |\n"
+          report+="\n### Test suite run success"
 
           echo "$report" > coverage-report.md
 
