@@ -60,12 +60,12 @@ jobs:
           lines_pct=$(get_percentage 'Lines')
 
           report="### Coverage report\n\n"
-          report+="| St. | Category | Percentage | Covered / Total |\n"
-          report+="|:---:|----------|:----------:|:---------------:|\n"
+          report+="| St. | Category  | Percentage | Covered / Total |\n"
+          report+="|:---:|:---------:|:----------:|:---------------:|\n"
           report+="| $(get_emoji $statements_pct) | Statements | $statements_pct% | $(get_covered_total 'Statements') |\n"
-          report+="| $(get_emoji $branches_pct) | Branches | $branches_pct% | $(get_covered_total 'Branches') |\n"
-          report+="| $(get_emoji $functions_pct) | Functions | $functions_pct% | $(get_covered_total 'Functions') |\n"
-          report+="| $(get_emoji $lines_pct) | Lines | $lines_pct% | $(get_covered_total 'Lines') |\n"
+          report+="| $(get_emoji $branches_pct)   | Branches   | $branches_pct%   | $(get_covered_total 'Branches')   |\n"
+          report+="| $(get_emoji $functions_pct)  | Functions  | $functions_pct%  | $(get_covered_total 'Functions')  |\n"
+          report+="| $(get_emoji $lines_pct)      | Lines      | $lines_pct%      | $(get_covered_total 'Lines')      |\n"
           report+="\n### Test suite run success"
 
           echo "$report" > coverage-report.md
