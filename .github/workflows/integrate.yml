@@ -45,29 +45,48 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
         run: |
-          commit_list="${{ steps.commits.outputs.commit_list }}"
-           for commit in $(git rev-list ${{ github.event.before}}..${{ github.sha}}); do
-              git checkout $commit
-              echo "run test"
-               # Install dependencies
-              npm install
-            
-              COVERAGE=$(npm run test-once -- --coverage --json --outputFile=coverage-summary.json)
+              commit_list="${{ steps.commits.outputs.commit_list }}"
+              for commit in $(git rev-list ${{ github.event.before}}..${{ github.sha}}); do
+                  git checkout $commit
+                  echo "run test"
 
-              # Parse coverage details
-              TOTAL_STATEMENTS=$(jq '.total.statements.pct' coverage-summary.json)
-              TOTAL_BRANCHES=$(jq '.total.branches.pct' coverage-summary.json)
-              TOTAL_FUNCTIONS=$(jq '.total.functions.pct' coverage-summary.json)
-              TOTAL_LINES=$(jq '.total.lines.pct' coverage-summary.json)
+                  # Install dependencies
+                  npm install
+                  
+                  # Generate coverage report and save it as coverage-summary.json
+                  npm run test-once -- --coverage --json --outputFile=coverage-summary.json
 
-              # Comment on the commit with improved formatting
-              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:
-              - **Statements:** ${TOTAL_STATEMENTS}% 
-              - **Branches:** ${TOTAL_BRANCHES}% 
-              - **Functions:** ${TOTAL_FUNCTIONS}% 
-              - **Lines:** ${TOTAL_LINES}%"
-          done
-        shell: bash
+                  # Parse coverage details using jq
+                  TOTAL_STATEMENTS=$(jq '.total.statements.pct' coverage-summary.json)
+                  COVERED_STATEMENTS=$(jq '.total.statements.covered' coverage-summary.json)
+                  TOTAL_STATEMENT_COUNT=$(jq '.total.statements.total' coverage-summary.json)
+                  
+                  TOTAL_BRANCHES=$(jq '.total.branches.pct' coverage-summary.json)
+                  COVERED_BRANCHES=$(jq '.total.branches.covered' coverage-summary.json)
+                  TOTAL_BRANCH_COUNT=$(jq '.total.branches.total' coverage-summary.json)
+                  
+                  TOTAL_FUNCTIONS=$(jq '.total.functions.pct' coverage-summary.json)
+                  COVERED_FUNCTIONS=$(jq '.total.functions.covered' coverage-summary.json)
+                  TOTAL_FUNCTION_COUNT=$(jq '.total.functions.total' coverage-summary.json)
+
+                  TOTAL_LINES=$(jq '.total.lines.pct' coverage-summary.json)
+                  COVERED_LINES=$(jq '.total.lines.covered' coverage-summary.json)
+                  TOTAL_LINE_COUNT=$(jq '.total.lines.total' coverage-summary.json)
+
+                  # Construct the formatted coverage report
+                  COVERAGE_REPORT="### Jest Coverage Report for commit $commit:\n\n"
+                  COVERAGE_REPORT+="| Category   | Percentage | Covered / Total |\n"
+                  COVERAGE_REPORT+="|------------|------------|----------------|\n"
+                  COVERAGE_REPORT+="| Statements | ${TOTAL_STATEMENTS}% | ${COVERED_STATEMENTS}/${TOTAL_STATEMENT_COUNT} |\n"
+                  COVERAGE_REPORT+="| Branches   | ${TOTAL_BRANCHES}% | ${COVERED_BRANCHES}/${TOTAL_BRANCH_COUNT} |\n"
+                  COVERAGE_REPORT+="| Functions  | ${TOTAL_FUNCTIONS}% | ${COVERED_FUNCTIONS}/${TOTAL_FUNCTION_COUNT} |\n"
+                  COVERAGE_REPORT+="| Lines      | ${TOTAL_LINES}% | ${COVERED_LINES}/${TOTAL_LINE_COUNT} |\n"
+
+                  # Comment on the commit with the formatted coverage report
+                  gh api repos/${{ github.repository }}/commits/$commit/comments -f body="$COVERAGE_REPORT"
+              done
+          shell: bash
+
      #####
       #- name: Run E2E Tests
       #  uses: cypress-io/github-action@v4
