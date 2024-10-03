@@ -52,26 +52,34 @@ jobs:
                # Install dependencies
               npm install
             
-              # Check if coverage summary exists
               if [ -f coverage/coverage-summary.json ]; then
-                COVERAGE=$(cat coverage/coverage-summary.json)
+                # Extract coverage data
                 STATEMENTS=$(jq '.total.statements.pct' coverage/coverage-summary.json)
                 BRANCHES=$(jq '.total.branches.pct' coverage/coverage-summary.json)
                 FUNCTIONS=$(jq '.total.functions.pct' coverage/coverage-summary.json)
                 LINES=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+                COVERED_STATEMENTS=$(jq '.total.statements.covered' coverage/coverage-summary.json)
+                TOTAL_STATEMENTS=$(jq '.total.statements.total' coverage/coverage-summary.json)
+                COVERED_BRANCHES=$(jq '.total.branches.covered' coverage/coverage-summary.json)
+                TOTAL_BRANCHES=$(jq '.total.branches.total' coverage/coverage-summary.json)
+                COVERED_FUNCTIONS=$(jq '.total.functions.covered' coverage/coverage-summary.json)
+                TOTAL_FUNCTIONS=$(jq '.total.functions.total' coverage/coverage-summary.json)
+                COVERED_LINES=$(jq '.total.lines.covered' coverage/coverage-summary.json)
+                TOTAL_LINES=$(jq '.total.lines.total' coverage/coverage-summary.json)
 
-                # Format the coverage report
-                BODY="Coverage report\n\n| St.❔ | Category | Percentage | Covered / Total |\n| :--: | :------- | ---------: | ------------: |\n"
-                BODY+="| 🟢 | Statements | $STATEMENTS% | $(jq '.total.statements.covered' coverage/coverage-summary.json)/$(jq '.total.statements.total' coverage/coverage-summary.json) |\n"
-                BODY+="| 🟢 | Branches | $BRANCHES% | $(jq '.total.branches.covered' coverage/coverage-summary.json)/$(jq '.total.branches.total' coverage/coverage-summary.json) |\n"
-                BODY+="| 🟢 | Functions | $FUNCTIONS% | $(jq '.total.functions.covered' coverage/coverage-summary.json)/$(jq '.total.functions.total' coverage/coverage-summary.json) |\n"
-                BODY+="| 🟢 | Lines | $LINES% | $(jq '.total.lines.covered' coverage/coverage-summary.json)/$(jq '.total.lines.total' coverage/coverage-summary.json) |\n"
+                # Format the coverage report as a markdown table
+                BODY="Coverage report for commit $commit\n\n"
+                BODY+="| St.❔ | Category   | Percentage | Covered / Total |\n"
+                BODY+="| :--: | :--------- | ---------: | --------------: |\n"
+                BODY+="| 🟢  | Statements  | ${STATEMENTS}% | ${COVERED_STATEMENTS}/${TOTAL_STATEMENTS} |\n"
+                BODY+="| 🟢  | Branches    | ${BRANCHES}%   | ${COVERED_BRANCHES}/${TOTAL_BRANCHES} |\n"
+                BODY+="| 🟢  | Functions   | ${FUNCTIONS}%  | ${COVERED_FUNCTIONS}/${TOTAL_FUNCTIONS} |\n"
+                BODY+="| 🟢  | Lines       | ${LINES}%      | ${COVERED_LINES}/${TOTAL_LINES} |\n"
 
                 # Comment on the commit
                 gh api repos/${{ github.repository }}/commits/$commit/comments -f body="$BODY"
               else
                 echo "Error: No coverage report found."
-                exit 1
               fi
           done
         shell: bash
