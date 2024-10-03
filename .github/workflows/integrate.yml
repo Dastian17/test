@@ -52,28 +52,36 @@ jobs:
                # Install dependencies
               npm install
             
-              # Generate coverage report
-              COVERAGE=$(npm run test-once -- --coverage)
-            
-              # Parse and format the coverage output (you can use string manipulation, regex, or similar)
-              # This is an example approach to parsing and formatting, assuming $COVERAGE is in a readable format
+              # Parse the coverage summary JSON
+              COVERAGE_SUMMARY=$(cat coverage/coverage-summary.json)
 
-              # Extract relevant information for Statements, Branches, Functions, and Lines
-              STATEMENTS=$(echo "$COVERAGE" | grep -m 1 -E 'Statements\s+[0-9]+')
-              BRANCHES=$(echo "$COVERAGE" | grep -m 1 -E 'Branches\s+[0-9]+')
-              FUNCTIONS=$(echo "$COVERAGE" | grep -m 1 -E 'Functions\s+[0-9]+')
-              LINES=$(echo "$COVERAGE" | grep -m 1 -E 'Lines\s+[0-9]+')
+              STATEMENTS=$(echo "$COVERAGE_SUMMARY" | jq '.total.statements.pct')
+              BRANCHES=$(echo "$COVERAGE_SUMMARY" | jq '.total.branches.pct')
+              FUNCTIONS=$(echo "$COVERAGE_SUMMARY" | jq '.total.functions.pct')
+              LINES=$(echo "$COVERAGE_SUMMARY" | jq '.total.lines.pct')
 
-              # Format the parsed data into the desired table structure
-              FORMATTED_COVERAGE="Coverage report\n\n"
+              TOTAL_STATEMENTS=$(echo "$COVERAGE_SUMMARY" | jq '.total.statements.total')
+              COVERED_STATEMENTS=$(echo "$COVERAGE_SUMMARY" | jq '.total.statements.covered')
+
+              TOTAL_BRANCHES=$(echo "$COVERAGE_SUMMARY" | jq '.total.branches.total')
+              COVERED_BRANCHES=$(echo "$COVERAGE_SUMMARY" | jq '.total.branches.covered')
+
+              TOTAL_FUNCTIONS=$(echo "$COVERAGE_SUMMARY" | jq '.total.functions.total')
+              COVERED_FUNCTIONS=$(echo "$COVERAGE_SUMMARY" | jq '.total.functions.covered')
+
+              TOTAL_LINES=$(echo "$COVERAGE_SUMMARY" | jq '.total.lines.total')
+              COVERED_LINES=$(echo "$COVERAGE_SUMMARY" | jq '.total.lines.covered')
+
+              # Format the report in Markdown table
+              FORMATTED_COVERAGE="### Coverage report for commit $commit\n\n"
               FORMATTED_COVERAGE+="| St. ❔ | Category   | Percentage | Covered / Total |\n"
               FORMATTED_COVERAGE+="|--------|------------|------------|----------------|\n"
-              FORMATTED_COVERAGE+="| 🟢      | Statements | 100%       | 2/2            |\n"
-              FORMATTED_COVERAGE+="| 🟢      | Branches   | 100%       | 0/0            |\n"
-              FORMATTED_COVERAGE+="| 🟢      | Functions  | 100%       | 2/2            |\n"
-              FORMATTED_COVERAGE+="| 🟢      | Lines      | 100%       | 2/2            |\n"
+              FORMATTED_COVERAGE+="| 🟢      | Statements | $STATEMENTS%       | $COVERED_STATEMENTS/$TOTAL_STATEMENTS            |\n"
+              FORMATTED_COVERAGE+="| 🟢      | Branches   | $BRANCHES%       | $COVERED_BRANCHES/$TOTAL_BRANCHES            |\n"
+              FORMATTED_COVERAGE+="| 🟢      | Functions  | $FUNCTIONS%       | $COVERED_FUNCTIONS/$TOTAL_FUNCTIONS            |\n"
+              FORMATTED_COVERAGE+="| 🟢      | Lines      | $LINES%       | $COVERED_LINES/$TOTAL_LINES            |\n"
 
-              # Add the formatted coverage to the comment body
+              # Comment on the commit with formatted coverage
               gh api repos/${{ github.repository }}/commits/$commit/comments -f body="$FORMATTED_COVERAGE"
           done
         shell: bash
