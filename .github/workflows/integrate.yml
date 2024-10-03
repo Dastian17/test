@@ -22,7 +22,7 @@ jobs:
         id: commits
         run: |
           commit_list=$(jq -r '.[] | .id' <<< '${{ toJson(github.event.commits) }}')
-          echo "::set-output name=commit_list::${commit_list}"
+          echo "commit_list=${commit_list}" >> $GITHUB_OUTPUT
 
       - name: Install GitHub CLI
         run: |
@@ -45,7 +45,7 @@ jobs:
             git checkout $commit
             echo "run test"
             npm install
-            node << EOF
+            node << 'EOF'
               const fs = require('fs');
               const { execSync } = require('child_process');
 
@@ -57,19 +57,19 @@ jobs:
                 if (match) {
                   const [, statements, branches, functions, lines] = match;
                   const getEmoji = (percentage) => parseFloat(percentage) === 100 ? '🟢' : '❔';
-                  const formattedReport = \`
+                  const formattedReport = `
 ### Coverage report
 
 St.  | Category    | Percentage
 -----|-------------|------------
-\${getEmoji(statements)} | Statements  | \${statements}%
-\${getEmoji(branches)}   | Branches    | \${branches}%
-\${getEmoji(functions)}  | Functions   | \${functions}%
-\${getEmoji(lines)}      | Lines       | \${lines}%
-                  \`;
+${getEmoji(statements)} | Statements  | ${statements}%
+${getEmoji(branches)}   | Branches    | ${branches}%
+${getEmoji(functions)}  | Functions   | ${functions}%
+${getEmoji(lines)}      | Lines       | ${lines}%
+                  `;
 
                   const commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
-                  const fullComment = \`Jest Coverage Report for commit \${commitHash}:\n\${formattedReport}\`;
+                  const fullComment = `Jest Coverage Report for commit ${commitHash}:\n${formattedReport}`;
                   fs.writeFileSync('coverage-comment.txt', fullComment);
                   console.log('Reporte de cobertura formateado y guardado en coverage-comment.txt');
                 } else {
