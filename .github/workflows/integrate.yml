@@ -52,38 +52,47 @@ jobs:
                # Install dependencies
               npm install
             
-              if [ -f coverage/coverage-summary.json ]; then
-                # Extract coverage data
-                STATEMENTS=$(jq '.total.statements.pct' coverage/coverage-summary.json)
-                BRANCHES=$(jq '.total.branches.pct' coverage/coverage-summary.json)
-                FUNCTIONS=$(jq '.total.functions.pct' coverage/coverage-summary.json)
-                LINES=$(jq '.total.lines.pct' coverage/coverage-summary.json)
-                COVERED_STATEMENTS=$(jq '.total.statements.covered' coverage/coverage-summary.json)
-                TOTAL_STATEMENTS=$(jq '.total.statements.total' coverage/coverage-summary.json)
-                COVERED_BRANCHES=$(jq '.total.branches.covered' coverage/coverage-summary.json)
-                TOTAL_BRANCHES=$(jq '.total.branches.total' coverage/coverage-summary.json)
-                COVERED_FUNCTIONS=$(jq '.total.functions.covered' coverage/coverage-summary.json)
-                TOTAL_FUNCTIONS=$(jq '.total.functions.total' coverage/coverage-summary.json)
-                COVERED_LINES=$(jq '.total.lines.covered' coverage/coverage-summary.json)
-                TOTAL_LINES=$(jq '.total.lines.total' coverage/coverage-summary.json)
+              const fs = require('fs');
+              const { execSync } = require('child_process');
 
-                # Format the coverage report as a markdown table
-                BODY="### Coverage report for commit $commit\n\n"
-                BODY+="| St.❔ | Category   | Percentage | Covered / Total |\n"
-                BODY+="| :--: | :--------- | ---------: | --------------: |\n"
-                BODY+="| 🟢  | Statements  | ${STATEMENTS}% | ${COVERED_STATEMENTS}/${TOTAL_STATEMENTS} |\n"
-                BODY+="| 🟢  | Branches    | ${BRANCHES}%   | ${COVERED_BRANCHES}/${TOTAL_BRANCHES} |\n"
-                BODY+="| 🟢  | Functions   | ${FUNCTIONS}%  | ${COVERED_FUNCTIONS}/${TOTAL_FUNCTIONS} |\n"
-                BODY+="| 🟢  | Lines       | ${LINES}%      | ${COVERED_LINES}/${TOTAL_LINES} |\n"
+              // Ejecutar Jest y capturar la salida
+              const jestOutput = execSync('npm run test-once -- --coverage', { encoding: 'utf-8' });
 
-                # Debug: Log the body to ensure it's being formatted correctly
-                echo "$BODY"
+              // Extraer la información de cobertura
+              const coverageRegex = /All files\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/;
+              const match = jestOutput.match(coverageRegex);
 
-                # Comment on the commit
-                gh api repos/${{ github.repository }}/commits/$commit/comments -f body="$BODY"
-              else
-                echo "Error: No coverage report found."
-              fi
+              if (match) {
+                const [, statements, branches, functions, lines] = match;
+
+                // Función para determinar el emoji basado en el porcentaje
+                const getEmoji = (percentage) => percentage === '100' ? '🟢' : '❔';
+
+                // Crear el reporte formateado
+                const formattedReport = `
+              ### Coverage report
+
+              St.  | Category    | Percentage
+              -----|-------------|------------
+              ${getEmoji(statements)} | Statements  | ${statements}%
+              ${getEmoji(branches)}   | Branches    | ${branches}%
+              ${getEmoji(functions)}  | Functions   | ${functions}%
+              ${getEmoji(lines)}      | Lines       | ${lines}%
+                `;
+
+                // Obtener el hash del commit actual
+                const commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+
+                // Crear el comentario completo
+                const fullComment = `Jest Coverage Report for commit ${commitHash}:\n${formattedReport}`;
+
+                // Guardar el comentario en un archivo temporal
+                fs.writeFileSync('coverage-comment.txt', fullComment);
+
+                console.log('Reporte de cobertura formateado y guardado en coverage-comment.txt');
+              } else {
+                console.error('No se pudo extraer la información de cobertura del output de Jest.');
+              }
           done
         shell: bash
      #####
