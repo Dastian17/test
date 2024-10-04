@@ -1,55 +1,87 @@
-name: javascript-CI
+name: CI Workflow for Each Commit with Jest Coverage
 
 on:
   push:
-    tags:
-      - 'commit/*'
+    branches:
+      - "**"
 
-permissions: write-all
+permissions:
+  contents: write # Permission to write to the repo (necessary for commenting)
 
 jobs:
-  ci_to_main:
+  run-for-each-commit:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up node.js
-        uses: actions/setup-node@v4
+      # Checkout the code
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
-          node-version: 20
-      - name: Install dependencies
-        run: npm ci
+          fetch-depth: 0 # Ensure all commits are available
 
-      - name: Create Changelog
-        id: changelog
-        uses: actions/github-script@v6.3.1
-        env:
-          COMMITS: ${{ toJSON(github.event.commits) }}
-        with:
-          result-encoding: string
-          script: |
-              const commits = JSON.parse(process.env.COMMITS);
-              for (const commit of commits) {
-                // Dispara otro workflow para cada commit
-                await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/actions/workflows/your-other-workflow.yml/dispatches`, {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                  },
-                  body: JSON.stringify({ ref: github.ref })
-                });
-              }
-              return "Changelog processed";
+      # Get commits from the push event and store them as output
+      - name: Get commits from push
+        id: commits
+        run: |
+          commit_list=$(jq -r '.[] | .id' <<< '${{ toJson(github.event.commits) }}')
+          echo "::set-output name=commit_list::${commit_list}"
 
-      - name: Run Unit Tests for the latest commit
-        run: npm run test-once
-
+      # Install GitHub CLI
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
       - name: Jest coverage report
         uses: ArtiomTr/jest-coverage-report-action@v2.2.6
         id: coverage
         with:
-            output: report-markdown, comment
+          output: report-markdown, comment
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
 
-      - uses: marocchino/sticky-pull-request-comment@v2
-        with:
-            message: ${{ steps.coverage.outputs.report }}
+      # Run Jest coverage for each commit
+      - name: Run Jest coverage for each commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
+        run: |
+          commit_list="${{ steps.commits.outputs.commit_list }}"
+          for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
+              git checkout $commit
+              echo "Running tests for commit $commit"
+
+              # Instalar dependencias
+              npm install
+
+              # Generar reporte de cobertura usando Jest
+              npm run test-once -- --coverage
+
+              # Capturar el comentario generado por ArtiomTr/jest-coverage-report-action
+              COVERAGE_COMMENT="${{ steps.coverage.outputs.report-markdown }}"
+
+              # Comentar en el commit el reporte de cobertura generado
+              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:\n$COVERAGE_COMMENT"
+          done
+        shell: bash
+
+     #####
+      #- name: Run E2E Tests
+      #  uses: cypress-io/github-action@v4
+      #  with:
+      #    start: npm start
+      #    wait-on: "http://localhost:1234"
+      #####
+      #- name: Build for deploy
+      #  run: npm run build
+      #- name: Deploy to GitHub Pages
+      #  if: success()
+      #  uses: crazy-max/ghaction-github-pages@v2
+      #  with:
+      #    target_branch: gh-pages
+      #    build_dir: dist
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
