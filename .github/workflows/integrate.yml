@@ -61,7 +61,7 @@ jobs:
               npm run test-once -- --coverage
 
               # Capturar el comentario generado por ArtiomTr/jest-coverage-report-action
-              COVERAGE_COMMENT="${{ steps.coverage.outputs.report-markdown }}"
+              COVERAGE_COMMENT="${{ steps.coverage.outputs.report }}"
 
               # Comentar en el commit el reporte de cobertura generado
               gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:\n$COVERAGE_COMMENT"
