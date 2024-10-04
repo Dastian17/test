@@ -2,13 +2,15 @@ name: CI
 on:
   push:
     branches:
-      - '**' # Adjust to the specific branches if needed
+      - '**'
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       
       - name: Set up Node.js
         uses: actions/setup-node@v2
@@ -18,13 +20,53 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Run tests with coverage
-        run: npm test -- --coverage
+      - name: Run tests and generate coverage for each commit
+        run: |
+          echo "# Coverage Reports" >> $GITHUB_STEP_SUMMARY
+          
+          for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
+            echo "## Coverage Report for commit ${commit:0:7}" >> $GITHUB_STEP_SUMMARY
+            
+            git checkout $commit
+            npm run test -- --coverage
+            
+            echo "| Category | Percentage | Covered / Total |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|------------|-----------------|" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract and format coverage data for this commit
+            if [ -f "coverage/coverage-summary.json" ]; then
+              STATEMENTS=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
+              BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
+              FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
+              LINES=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')
+              
+              STATEMENTS_COV=$(cat coverage/coverage-summary.json | jq -r '.total.statements.covered')
+              STATEMENTS_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.statements.total')
+              BRANCHES_COV=$(cat coverage/coverage-summary.json | jq -r '.total.branches.covered')
+              BRANCHES_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.branches.total')
+              FUNCTIONS_COV=$(cat coverage/coverage-summary.json | jq -r '.total.functions.covered')
+              FUNCTIONS_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.functions.total')
+              LINES_COV=$(cat coverage/coverage-summary.json | jq -r '.total.lines.covered')
+              LINES_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.lines.total')
+              
+              echo "| Statements | ${STATEMENTS}% | ${STATEMENTS_COV}/${STATEMENTS_TOTAL} |" >> $GITHUB_STEP_SUMMARY
+              echo "| Branches | ${BRANCHES}% | ${BRANCHES_COV}/${BRANCHES_TOTAL} |" >> $GITHUB_STEP_SUMMARY
+              echo "| Functions | ${FUNCTIONS}% | ${FUNCTIONS_COV}/${FUNCTIONS_TOTAL} |" >> $GITHUB_STEP_SUMMARY
+              echo "| Lines | ${LINES}% | ${LINES_COV}/${LINES_TOTAL} |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "No coverage data found for this commit" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Save the coverage report with commit hash
+            if [ -f "coverage/lcov.info" ]; then
+              mv coverage/lcov.info coverage/lcov-$commit.info
+            fi
+          done
       
-      - name: Generate formatted coverage report
-        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v2
         with:
-          coverage-file: ./coverage/coverage-final.json
-          base-path: ./
-          output: report-markdown
-          report-only-changed: false
+          name: coverage-reports
+          path: coverage/
