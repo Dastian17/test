@@ -33,7 +33,8 @@ jobs:
       - name: Trigger workflow for each commit
         run: |
           commit_list="${{ steps.commits.outputs.commit_list }}"
-          for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
+           for commit in $(git rev-list ${{ github.event.before}}..${{ github.sha}}); do
+              git checkout $commit
               echo "Triggering workflow for commit $commit"
               gh workflow run "integrate.yml" --ref $commit
           done
