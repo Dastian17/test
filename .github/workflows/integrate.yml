@@ -50,7 +50,7 @@ jobs:
           commit_list="${{ steps.commits.outputs.commit_list }}"
           for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
               echo "Triggering workflow for commit $commit"
-              gh workflow run <workflow_name> --ref $commit
+              gh workflow run "integrate.yml" --ref $commit
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
