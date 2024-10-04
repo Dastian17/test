@@ -45,19 +45,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Jest coverage for each commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Trigger workflow for each commit
         run: |
           commit_list="${{ steps.commits.outputs.commit_list }}"
           for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
-              git checkout $commit
-              echo "Running tests for commit $commit"
-
-              npm install
-              npm run test-once -- --coverage
-
-              COVERAGE_COMMENT="${{ steps.coverage.outputs.report }}"
-              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:\n$COVERAGE_COMMENT"
+              echo "Triggering workflow for commit $commit"
+              gh workflow run <workflow_name> --ref $commit
           done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
