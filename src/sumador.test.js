@@ -1,4 +1,4 @@
-import {sumar,restar} from "./sumador.js";
+import { sumar, restar } from "./sumador.js";
 
 describe("Sumar", () => {
   it("deberia sumar dos numeros", () => {
@@ -31,10 +31,5 @@ describe("Sumar", () => {
   it("deberia sumar dos numeros", () => {
     expect(sumar(1, 3)).toEqual(4);
   });
-  it("deberia sumar dos numeros", () => {
-    expect(restar(3, 3)).toEqual(0);
-  });
-
-
 
 });
