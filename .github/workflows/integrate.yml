@@ -30,17 +30,19 @@ jobs:
       - uses: marocchino/sticky-pull-request-comment@v2
         with:
             message: ${{ steps.coverage.outputs.report }}
+      - name: Get list of commits
+        id: commits
+        run: echo "::set-output name=commit_list::$(git rev-list ${{ github.event.before }}..${{ github.sha }})"
+
       - name: Trigger workflow for each commit
         run: |
           commit_list="${{ steps.commits.outputs.commit_list }}"
-           for commit in $(git rev-list ${{ github.event.before}}..${{ github.sha}}); do
-              git checkout $commit
-              echo "Triggering workflow for commit $commit"
-              gh workflow run "integrate.yml" --ref $commit
+          for commit in $commit_list; do
+            echo "Triggering workflow for commit $commit"
+            gh workflow run "integrate.yml" --ref $commit
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
       #####
       #- name: Run E2E Tests
       #  uses: cypress-io/github-action@v4
