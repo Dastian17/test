@@ -33,6 +33,6 @@ jobs:
           done
           
       - name: Upload coverage reports
-        uses: ArtiomTr/jest-coverage-report-action@v1
+        uses: ArtiomTr/jest-coverage-report-action@v2.2.6
         with:
           path: ./coverage/lcov-*.info  # Adjust the path to match your coverage reports
