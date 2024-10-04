@@ -8,12 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: '16'
       
@@ -33,7 +33,6 @@ jobs:
             echo "| Category | Percentage | Covered / Total |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|------------|-----------------|" >> $GITHUB_STEP_SUMMARY
             
-            # Extract and format coverage data for this commit
             if [ -f "coverage/coverage-summary.json" ]; then
               STATEMENTS=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
               BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
@@ -59,14 +58,13 @@ jobs:
             
             echo "" >> $GITHUB_STEP_SUMMARY
             
-            # Save the coverage report with commit hash
             if [ -f "coverage/lcov.info" ]; then
               mv coverage/lcov.info coverage/lcov-$commit.info
             fi
           done
       
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: coverage-reports
           path: coverage/
