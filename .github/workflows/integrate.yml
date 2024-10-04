@@ -1,8 +1,10 @@
 name: CI
+
 on:
   push:
     branches:
       - '**'
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,6 +24,7 @@ jobs:
       
       - name: Run tests and generate coverage for each commit
         run: |
+          set -e # Detener el script si hay un error
           echo "# Coverage Reports" >> $GITHUB_STEP_SUMMARY
           
           for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
@@ -34,19 +37,19 @@ jobs:
             echo "|----------|------------|-----------------|" >> $GITHUB_STEP_SUMMARY
             
             if [ -f "coverage/coverage-summary.json" ]; then
-              STATEMENTS=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
-              BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
-              FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
-              LINES=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')
+              STATEMENTS=$(jq -r '.total.statements.pct' coverage/coverage-summary.json)
+              BRANCHES=$(jq -r '.total.branches.pct' coverage/coverage-summary.json)
+              FUNCTIONS=$(jq -r '.total.functions.pct' coverage/coverage-summary.json)
+              LINES=$(jq -r '.total.lines.pct' coverage/coverage-summary.json)
               
-              STATEMENTS_COV=$(cat coverage/coverage-summary.json | jq -r '.total.statements.covered')
-              STATEMENTS_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.statements.total')
-              BRANCHES_COV=$(cat coverage/coverage-summary.json | jq -r '.total.branches.covered')
-              BRANCHES_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.branches.total')
-              FUNCTIONS_COV=$(cat coverage/coverage-summary.json | jq -r '.total.functions.covered')
-              FUNCTIONS_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.functions.total')
-              LINES_COV=$(cat coverage/coverage-summary.json | jq -r '.total.lines.covered')
-              LINES_TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.lines.total')
+              STATEMENTS_COV=$(jq -r '.total.statements.covered' coverage/coverage-summary.json)
+              STATEMENTS_TOTAL=$(jq -r '.total.statements.total' coverage/coverage-summary.json)
+              BRANCHES_COV=$(jq -r '.total.branches.covered' coverage/coverage-summary.json)
+              BRANCHES_TOTAL=$(jq -r '.total.branches.total' coverage/coverage-summary.json)
+              FUNCTIONS_COV=$(jq -r '.total.functions.covered' coverage/coverage-summary.json)
+              FUNCTIONS_TOTAL=$(jq -r '.total.functions.total' coverage/coverage-summary.json)
+              LINES_COV=$(jq -r '.total.lines.covered' coverage/coverage-summary.json)
+              LINES_TOTAL=$(jq -r '.total.lines.total' coverage/coverage-summary.json)
               
               echo "| Statements | ${STATEMENTS}% | ${STATEMENTS_COV}/${STATEMENTS_TOTAL} |" >> $GITHUB_STEP_SUMMARY
               echo "| Branches | ${BRANCHES}% | ${BRANCHES_COV}/${BRANCHES_TOTAL} |" >> $GITHUB_STEP_SUMMARY
