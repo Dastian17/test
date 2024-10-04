@@ -22,14 +22,49 @@ jobs:
         run: npm install
 
       - name: Run tests and generate coverage for each commit
+        on:
+  push:
+    tags:
+      - 'commit/*'  # Aquí se especifica que la acción se ejecutará en los tags que coincidan con 'commit/*'
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Run Jest coverage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
         run: |
-          # Get the list of commits in the push
-          for commit in $(git rev-list ${{ github.event.before}}..${{ github.sha}}); do        
+          commit_list="${{ steps.commits.outputs.commit_list }}"
+          for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do
+              git checkout $commit
+              echo "run test"
+              # Install dependencies
+              npm install
+            
+              # Generate coverage report
+              COVERAGE=$(npm run test-once -- --coverage)
+            
+              # Comment on the commit
+              gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: $COVERAGE"
+          done
+          for commit in $commit_list; do
+            echo "Running actions for commit: $commit"
+            
+            # Checkout each commit
             git checkout $commit
-            npm run test -- --coverage
-            # Here you can specify how you want to handle the coverage report
-            # For example, saving it with a unique filename based on the commit hash
-            mv ./coverage/lcov.info ./coverage/lcov-$commit.info
+            
+            # Install dependencies
+            npm install
+            
+            # Generate coverage report
+            COVERAGE=$(npm run test-once -- --coverage)
+            
+            # Comment on the commit
+            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: $COVERAGE"
           done
           
       - name: Upload coverage reports
