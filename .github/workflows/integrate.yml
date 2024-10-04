@@ -1,83 +1,30 @@
 name: CI
-
 on:
   push:
     branches:
-      - '**'  # Adjust to the specific branches if needed
-
+      - '**' # Adjust to the specific branches if needed
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
+      
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '16'
-
+      
       - name: Install dependencies
         run: npm install
-
-      - name: Run Jest coverage for each commit
-
-on:
-  push:
-    tags:
-      - 'commit/*'  # Aquí se especifica que la acción se ejecutará en los tags que coincidan con 'commit/*'
-
-jobs:
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Run Jest coverage
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Configure token for GitHub CLI
-        run: |
-          # Get the list of commits in the push
-          commit_list="${{ steps.commits.outputs.commit_list }}"
-          for commit in $(git rev-list ${{ github.event.before }}..${{ github.sha }}); do        
-            git checkout $commit
-            echo "Running tests for commit $commit"
-            npm install
-            
-            # Run tests and generate coverage report
-            npm run test -- --coverage
-            
-            # Save the coverage report with a unique filename based on the commit hash
-            mv ./coverage/lcov.info ./coverage/lcov-$commit.info
-            
-            # Comment on the commit with the coverage report
-            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: [Coverage Report](./coverage/lcov-$commit.info)"
-          done
-          
-          # Optionally handle the list of commits if needed
-          for commit in $commit_list; do
-            echo "Running actions for commit: $commit"
-            
-            # Checkout each commit
-            git checkout $commit
-            
-            # Install dependencies
-            npm install
-            
-            # Run tests and generate coverage report
-            npm run test -- --coverage
-            
-            # Save the coverage report with a unique filename based on the commit hash
-            mv ./coverage/lcov.info ./coverage/lcov-$commit.info
-            
-            # Comment on the commit with the coverage report
-            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit: [Coverage Report](./coverage/lcov-$commit.info)"
-          done
-
-          
-      - name: Upload coverage reports
+      
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+      
+      - name: Generate formatted coverage report
         uses: ArtiomTr/jest-coverage-report-action@v2.2.6
         with:
-          path: ./coverage/lcov-*.info  # Adjust the path to match your coverage reports
+          coverage-file: ./coverage/coverage-final.json
+          base-path: ./
+          output: report-markdown
+          report-only-changed: false
