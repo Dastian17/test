@@ -58,21 +58,6 @@ jobs:
               # Comment on the commit
               gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:$COVERAGE"
           done
-          for commit in $commit_list; do
-            echo "Running actions for commit: $commit"
-            
-            # Checkout each commit
-            git checkout $commit
-            
-            # Install dependencies
-            npm install
-            
-            # Generate coverage report
-            COVERAGE=$(npm run test-once -- --coverage)
-            
-            # Comment on the commit
-            gh api repos/${{ github.repository }}/commits/$commit/comments -f body="### Jest Coverage Report for commit $commit:$COVERAGE"
-          done
         shell: bash
 #####
       #- name: Run E2E Tests
